@@ -108,14 +108,69 @@ The app starts on **port 8082** by default (configured in `application.propertie
 
 ---
 
-## Docker
+## Docker Compose (recommended)
+
+The easiest way to run the full stack locally — starts both the app and MongoDB together.
+
+### 1. Build the JAR first
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+```
+
+### 2. Start all services
+
+```bash
+docker-compose up -d
+```
+
+### 3. Check service status
+
+```bash
+docker-compose ps
+```
+
+### 4. View logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# App only
+docker-compose logs -f todo-api
+
+# MongoDB only
+docker-compose logs -f mongo
+```
+
+### 5. Stop all services
+
+```bash
+docker-compose down
+```
+
+### 6. Stop and remove volumes (wipes MongoDB data)
+
+```bash
+docker-compose down -v
+```
+
+### 7. Rebuild after code changes
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests && docker-compose up -d --build
+```
+
+---
+
+## Docker (manual)
 
 ### 1. Build the JAR first
 
 Docker copies the JAR from `target/`. Build it before building the image:
 
 ```bash
-./mvnw clean package -DskipTests
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
 ```
 
 ### 2. Build the Docker image
@@ -243,6 +298,94 @@ HTTP request histograms are configured with SLO buckets at **50ms, 100ms, 200ms,
 
 ---
 
+## Kubernetes
+
+All manifests live in [k8s/](k8s/). Numbered filenames guarantee correct apply order.
+
+```
+k8s/
+├── 00-namespace.yaml        # Namespace: todo
+├── 01-mongo-secret.yaml     # MongoDB credentials (base64 encoded)
+├── 02-mongo-pvc.yaml        # 1Gi PersistentVolumeClaim for MongoDB data
+├── 03-mongo-deployment.yaml # MongoDB Deployment (single replica, Recreate strategy)
+├── 04-mongo-service.yaml    # MongoDB ClusterIP Service (internal only)
+├── 05-todo-configmap.yaml   # Non-sensitive app config (port, actuator settings)
+├── 06-todo-deployment.yaml  # todo-api Deployment with init container + health probes
+└── 07-todo-service.yaml     # todo-api NodePort Service → localhost:30082
+```
+
+### Prerequisites
+
+Build the Docker image before deploying (Docker Desktop shares the daemon with k8s):
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+docker build -t todo-api:1.0.0 .
+```
+
+### Deploy everything (one command)
+
+```bash
+kubectl apply -f k8s/
+```
+
+### Check status
+
+```bash
+# All resources in the namespace
+kubectl get all -n todo
+
+# Watch pods come up
+kubectl get pods -n todo -w
+
+# Describe a pod if it's not starting
+kubectl describe pod -l app=todo-api -n todo
+kubectl describe pod -l app=mongo -n todo
+```
+
+### View logs
+
+```bash
+# todo-api logs
+kubectl logs -f deployment/todo-api -n todo
+
+# MongoDB logs
+kubectl logs -f deployment/mongo -n todo
+```
+
+### Access the app
+
+With NodePort the app is available at:
+
+```
+http://localhost:30082/api/todos
+http://localhost:30082/actuator/health
+```
+
+### Tear down
+
+```bash
+# Remove all resources but keep the namespace
+kubectl delete -f k8s/ --ignore-not-found
+
+# Remove everything including the namespace
+kubectl delete namespace todo
+```
+
+### Useful kubectl commands
+
+| Action | Command |
+|--------|---------|
+| List all pods | `kubectl get pods -n todo` |
+| Shell into app pod | `kubectl exec -it deployment/todo-api -n todo -- sh` |
+| Shell into MongoDB | `kubectl exec -it deployment/mongo -n todo -- mongosh -u root -p password` |
+| Restart app | `kubectl rollout restart deployment/todo-api -n todo` |
+| Scale app | `kubectl scale deployment/todo-api --replicas=2 -n todo` |
+| Port-forward app | `kubectl port-forward svc/todo-api-service 8082:8082 -n todo` |
+| Port-forward mongo | `kubectl port-forward svc/mongo-service 27017:27017 -n todo` |
+
+---
+
 ## Tech stack
 
 | Component | Technology |
@@ -287,4 +430,116 @@ docker run -d --name todo-api -p 8082:8082 \
 
 One gotcha to be aware of
 The Dockerfile has EXPOSE 8080, but the app actually binds to 8082 (set in application.properties). Always map -p 8082:8082 when running the container. When running with Docker, also pass the MongoDB URI via -e so localhost in the properties resolves to the host machine, not inside the container.
+
+Updated quick-reference — replace ./mvnw with mvn for now:
+
+Goal	Command
+Compile	mvn clean compile
+Run tests	mvn test
+Package JAR	mvn clean package
+Package (skip tests)	mvn clean package -DskipTests
+Run the app	mvn spring-boot:run
+Restore wrapper	mvn wrapper:wrapper
+
+
+Now run Maven with Java 17 explicitly (since Maven defaults to Java 25 on your machine):
+
+
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean compile
+This is the recommended command going forward for all Maven operations on this project:
+
+Goal	Command
+Compile	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean compile
+Package	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+Run	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
+Why this happened:
+
+mvn on your machine uses OpenJDK 25 (installed by Homebrew as a Maven dependency)
+Lombok 1.18.20 (bundled with Spring Boot 2.5.2) only supports up to Java 15
+The upgraded Lombok 1.18.36 supports Java 17–23; paired with JAVA_HOME pointing to Java 17, annotation processing will work correctly
+To avoid typing JAVA_HOME=... every time, you can export it in your terminal session:
+
+
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+
+
+----
+Docker is running. Spin up MongoDB with a single command — matching the exact credentials in application.properties:
+
+
+docker run -d \
+  --name mongo-todo \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=password \
+  mongo:6
+Then start the app again:
+
+
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
+Useful MongoDB container commands:
+
+Action	Command
+Stop MongoDB	docker stop mongo-todo
+Start it again	docker start mongo-todo
+Remove it	docker rm -f mongo-todo
+Check logs	docker logs mongo-todo
+Open Mongo shell	docker exec -it mongo-todo mongosh -u root -p password
+The credentials (root / password) and port (27017) match exactly what's in application.properties, so no config changes needed.
+
+-----
+Services:
+
+Service	Image	Port	Notes
+mongo	mongo:6	27017	Persisted via named volume, health-checked
+todo-api	Built from Dockerfile	8082	Waits for mongo to be healthy before starting
+Key details:
+
+todo-api overrides SPRING_DATA_MONGODB_URI so it connects to the mongo container (not localhost)
+MongoDB data is persisted in mongo-data volume — survives container restarts
+todo-api only starts after MongoDB passes its health check (depends_on: condition: service_healthy)
+Both services share a private todo-network bridge network
+
+To run the full stack:
+
+# Step 1 — build the JAR
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+
+# Step 2 — start everything
+docker compose up -d
+
+# Step 3 — check it's running
+docker-compose ps
+App will be available at http://localhost:8082/api/todos
+
+# Step 4 — to stop and remove all
+docker compose down -v
+
+-----
+
+
+Files created in k8s/:
+
+File	What it does
+00-namespace.yaml	Creates todo namespace
+01-mongo-secret.yaml	MongoDB credentials (base64)
+02-mongo-pvc.yaml	1Gi persistent volume for MongoDB data
+03-mongo-deployment.yaml	MongoDB pod with liveness/readiness probes
+04-mongo-service.yaml	ClusterIP — MongoDB accessible only inside cluster
+05-todo-configmap.yaml	Non-sensitive app config
+06-todo-deployment.yaml	App pod — init container waits for Mongo, health probes via /actuator/health
+07-todo-service.yaml	NodePort — app accessible at localhost:30082
+To deploy:
+
+
+# 1. Build image
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+docker build -t todo-api:1.0.0 .
+
+# 2. Deploy everything
+kubectl apply -f k8s/
+
+# 3. Watch pods start
+kubectl get pods -n todo -w
+App will be live at http://localhost:30082/api/todos once both pods are Running.
 

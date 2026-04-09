@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+  namespace: todo
+  labels:
+    app: mongo
+spec:
+  selector:
+    app: mongo
+  type: ClusterIP     # Internal only — only todo-api needs to reach MongoDB
+  ports:
+    - name: mongo
+      protocol: TCP
+      port: 27017
+      targetPort: 27017

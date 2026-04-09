@@ -1,6 +1,6 @@
 # Download Java
-ARG JAVA_VERSION="11-jdk-slim"
-FROM openjdk:${JAVA_VERSION}
+ARG JAVA_VERSION="11-jdk-jammy"
+FROM eclipse-temurin:${JAVA_VERSION}
 
 LABEL version="1.0.0"
 
