@@ -404,8 +404,7 @@ kubectl delete namespace todo
 | Validation | Spring Validation (JSR-303) |
 | Utilities | Lombok |
 
-
-
+---
 ### Docker commands
 
 1. Build JAR first (Docker copies from target/)
@@ -483,7 +482,7 @@ docker exec -it mongo-todo mongosh -u root -p password
 ```
 The credentials (root / password) and port (27017) match exactly what's in application.properties, so no config changes needed.
 
-
+---
 ### Deploy and Access on KIND Cluster Handy Commands - Prashant:
 - Create the KIND cluster.
 - Because of zscaler Image pull are facing issues on local Mac. So Docker Images are loaded manually to KIND nodes. Load all 3 required images one by one use below command (mongo:6, busybox:1.36, prashantsharma288/todo-api:1.0.0).
