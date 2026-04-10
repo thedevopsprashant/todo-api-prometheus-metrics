@@ -121,44 +121,44 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
 ### 2. Start all services
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 3. Check service status
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 ### 4. View logs
 
 ```bash
 # All services
-docker-compose logs -f
+docker compose logs -f
 
 # App only
-docker-compose logs -f todo-api
+docker compose logs -f todo-api
 
 # MongoDB only
-docker-compose logs -f mongo
+docker compose logs -f mongo
 ```
 
 ### 5. Stop all services
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 6. Stop and remove volumes (wipes MongoDB data)
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ### 7. Rebuild after code changes
 
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests && docker-compose up -d --build
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests && docker compose up -d --build
 ```
 
 ---
@@ -362,6 +362,12 @@ http://localhost:30082/api/todos
 http://localhost:30082/actuator/health
 ```
 
+It can be accessed using port-forward as well: 
+```
+kubectl port-forward svc/todo-api-service 8082:8082 -n todo
+kubectl port-forward svc/mongo-service 27017:27017 -n todo
+```
+
 ### Tear down
 
 ```bash
@@ -399,30 +405,16 @@ kubectl delete namespace todo
 | Utilities | Lombok |
 
 
-One gotcha to be aware of
-The Dockerfile has EXPOSE 8080, but the app actually binds to 8082 (set in application.properties). Always map -p 8082:8082 when running the container. When running with Docker, also pass the MongoDB URI via -e so localhost in the properties resolves to the host machine, not inside the container.
 
+### Docker commands
 
-Maven commands
-Goal	Command
-Compile	./mvnw clean compile
-Run tests	./mvnw test
-Package JAR	./mvnw clean package
-Package (skip tests)	./mvnw clean package -DskipTests
-Run the app	./mvnw spring-boot:run
-Run packaged JAR	java -jar target/todo-1.0.0.jar
-Clean artifacts	./mvnw clean
-The app starts on port 8082.
+1. Build JAR first (Docker copies from target/)
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
 
-Docker commands
-
-# 1. Build JAR first (Docker copies from target/)
-./mvnw clean package -DskipTests
-
-# 2. Build the image
+2. Build the image
 docker build -t todo-api:1.0.0 .
 
-# 3. Run (note: -p 8082:8082 — NOT 8080, despite what the Dockerfile EXPOSE says)
+3. Run (note: -p 8082:8082 — NOT 8080, despite what the Dockerfile EXPOSE says)
 docker run -d --name todo-api -p 8082:8082 \
   -e SPRING_DATA_MONGODB_URI="mongodb://root:password@host.docker.internal:27017/todo?authSource=admin" \
   todo-api:1.0.0
@@ -431,115 +423,71 @@ docker run -d --name todo-api -p 8082:8082 \
 One gotcha to be aware of
 The Dockerfile has EXPOSE 8080, but the app actually binds to 8082 (set in application.properties). Always map -p 8082:8082 when running the container. When running with Docker, also pass the MongoDB URI via -e so localhost in the properties resolves to the host machine, not inside the container.
 
-Updated quick-reference — replace ./mvnw with mvn for now:
 
-Goal	Command
-Compile	mvn clean compile
-Run tests	mvn test
-Package JAR	mvn clean package
-Package (skip tests)	mvn clean package -DskipTests
-Run the app	mvn spring-boot:run
-Restore wrapper	mvn wrapper:wrapper
+Useful Maven Commands:
+```
+mvn clean compile
+mvn test
+mvn clean package
+mvn clean package -DskipTests
+mvn spring-boot:run
+mvn wrapper:wrapper
+```
 
-
-Now run Maven with Java 17 explicitly (since Maven defaults to Java 25 on your machine):
-
-
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean compile
+For Prashant's Mac, Run Maven with Java 17 explicitly (since Maven defaults to Java 25 on your machine):
 This is the recommended command going forward for all Maven operations on this project:
-
-Goal	Command
-Compile	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean compile
-Package	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
-Run	JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
+```
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean compile
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
+```
 Why this happened:
-
 mvn on your machine uses OpenJDK 25 (installed by Homebrew as a Maven dependency)
 Lombok 1.18.20 (bundled with Spring Boot 2.5.2) only supports up to Java 15
 The upgraded Lombok 1.18.36 supports Java 17–23; paired with JAVA_HOME pointing to Java 17, annotation processing will work correctly
 To avoid typing JAVA_HOME=... every time, you can export it in your terminal session:
-
-
+```
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-
+```
 
 ----
-Docker is running. Spin up MongoDB with a single command — matching the exact credentials in application.properties:
+### Run MongoDB Docker Container and Then App locally - Local testing
+Confirm Docker is running. Spin up MongoDB with a single command — matching the exact credentials in application.properties:
 
-
+```
 docker run -d \
   --name mongo-todo \
   -p 27017:27017 \
   -e MONGO_INITDB_ROOT_USERNAME=root \
   -e MONGO_INITDB_ROOT_PASSWORD=password \
   mongo:6
-Then start the app again:
+```
 
-
+Then start the app again using maven which will then automatically connect to mongodb container:
+```
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
-Useful MongoDB container commands:
+```
 
-Action	Command
-Stop MongoDB	docker stop mongo-todo
-Start it again	docker start mongo-todo
-Remove it	docker rm -f mongo-todo
-Check logs	docker logs mongo-todo
-Open Mongo shell	docker exec -it mongo-todo mongosh -u root -p password
+Useful MongoDB container commands:
+```
+docker stop mongo-todo
+docker start mongo-todo
+docker rm -f mongo-todo
+docker logs mongo-todo
+docker exec -it mongo-todo mongosh -u root -p password
+```
 The credentials (root / password) and port (27017) match exactly what's in application.properties, so no config changes needed.
 
------
-Services:
 
-Service	Image	Port	Notes
-mongo	mongo:6	27017	Persisted via named volume, health-checked
-todo-api	Built from Dockerfile	8082	Waits for mongo to be healthy before starting
-Key details:
+### Deploy and Access on KIND Cluster Handy Commands - Prashant:
+- Create the KIND cluster.
+- Because of zscaler Image pull are facing issues on local Mac. So Docker Images are loaded manually to KIND nodes. Load all 3 required images one by one use below command (mongo:6, busybox:1.36, prashantsharma288/todo-api:1.0.0).
 
-todo-api overrides SPRING_DATA_MONGODB_URI so it connects to the mongo container (not localhost)
-MongoDB data is persisted in mongo-data volume — survives container restarts
-todo-api only starts after MongoDB passes its health check (depends_on: condition: service_healthy)
-Both services share a private todo-network bridge network
-
-To run the full stack:
-
-# Step 1 — build the JAR
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
-
-# Step 2 — start everything
-docker compose up -d
-
-# Step 3 — check it's running
-docker-compose ps
-App will be available at http://localhost:8082/api/todos
-
-# Step 4 — to stop and remove all
-docker compose down -v
-
------
-
-
-Files created in k8s/:
-
-File	What it does
-00-namespace.yaml	Creates todo namespace
-01-mongo-secret.yaml	MongoDB credentials (base64)
-02-mongo-pvc.yaml	1Gi persistent volume for MongoDB data
-03-mongo-deployment.yaml	MongoDB pod with liveness/readiness probes
-04-mongo-service.yaml	ClusterIP — MongoDB accessible only inside cluster
-05-todo-configmap.yaml	Non-sensitive app config
-06-todo-deployment.yaml	App pod — init container waits for Mongo, health probes via /actuator/health
-07-todo-service.yaml	NodePort — app accessible at localhost:30082
-To deploy:
-
-
-# 1. Build image
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
-docker build -t todo-api:1.0.0 .
-
-# 2. Deploy everything
-kubectl apply -f k8s/
-
-# 3. Watch pods start
-kubectl get pods -n todo -w
-App will be live at http://localhost:30082/api/todos once both pods are Running.
-
+- kubectl apply -f k8/
+```
+Kind create cluster --name=prashant
+kind create cluster --name prashant --config=multi-node.yml
+kind load docker-image mongo:6 --name prashant  —>  To use local docker image in KIND
+Kind get clusters
+Kind delete cluster --name=prashant
+```
