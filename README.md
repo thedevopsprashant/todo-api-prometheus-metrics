@@ -409,16 +409,21 @@ kubectl delete namespace todo
 ### Docker commands
 
 1. Build JAR first (Docker copies from target/)
+```
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn clean package -DskipTests
+```
 
 2. Build the image
+```
 docker build -t todo-api:1.0.0 .
+```
 
 3. Run (note: -p 8082:8082 — NOT 8080, despite what the Dockerfile EXPOSE says)
+```
 docker run -d --name todo-api -p 8082:8082 \
   -e SPRING_DATA_MONGODB_URI="mongodb://root:password@host.docker.internal:27017/todo?authSource=admin" \
   todo-api:1.0.0
-
+```
 
 One gotcha to be aware of
 The Dockerfile has EXPOSE 8080, but the app actually binds to 8082 (set in application.properties). Always map -p 8082:8082 when running the container. When running with Docker, also pass the MongoDB URI via -e so localhost in the properties resolves to the host machine, not inside the container.
@@ -491,3 +496,5 @@ kind load docker-image mongo:6 --name prashant  —>  To use local docker image 
 Kind get clusters
 Kind delete cluster --name=prashant
 ```
+### For EKS Deployment
+First check App docker image is available on Dockerhub. Then Just apply the k8s/ folder it should create all the resources. App will be exposed on NodePort service.
