@@ -1,5 +1,5 @@
 #aws eks create-addon --cluster-name <your-cluster-name> --addon-name aws-ebs-csi-driver
-#Create SC on EKS, otherwise comment it out for local testing with Minikube or Docker Desktop 
+#Create SC on EKS, otherwise comment it out for local testing with Minikube or KIND
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

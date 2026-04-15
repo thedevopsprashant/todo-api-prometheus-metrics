@@ -6,6 +6,8 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     prometheus.io/path: '/actuator/prometheus'
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
     #prometheus.io/port: '8082' # Ensure this matches the targetPort below
   labels:
     app: todo-api
