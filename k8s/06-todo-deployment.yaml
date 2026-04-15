@@ -19,7 +19,7 @@ spec:
       initContainers:
         - name: wait-for-mongo
           image: busybox:1.36
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always  #IfNotPresent for locally built image
           command:
             - sh
             - -c
@@ -34,7 +34,7 @@ spec:
         - name: todo-api
           image: prashantsharma288/todo-api:1.0.0
           # IfNotPresent uses the locally built image (Docker Desktop shares the daemon)
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8082
           env:
