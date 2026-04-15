@@ -1,0 +1,10 @@
+- job_name: todo-api
+  metrics_path: '/actuator/prometheus'
+  scrape_interval: 3s
+  static_configs:
+    - targets: ['todo-api.todo:8082'] # try 8082 if 8080 doesn't work
+      labels:
+        application: 'todo-api'
+
+
+

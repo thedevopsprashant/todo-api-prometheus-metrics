@@ -497,3 +497,19 @@ Kind delete cluster --name=prashant
 ```
 ### For EKS Deployment
 First check App docker image is available on Dockerhub. Then Just apply the k8s/ folder it should create all the resources. App will be exposed on NodePort service.
+
+```yaml
+- job_name: todo-api
+  metrics_path: '/actuator/prometheus'
+  scrape_interval: 3s
+  static_configs:
+    - targets: ['todo-api.todo:8082']
+      labels:
+        application: 'todo-api'
+```
+
+annotations
+- prometheus.io/path: /actuator/prometheus
+- prometheus.io/scrape: "true"
+
+

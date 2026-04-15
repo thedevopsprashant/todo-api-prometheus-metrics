@@ -3,12 +3,16 @@ kind: Service
 metadata:
   name: todo-api-service
   namespace: todo
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/path: '/actuator/prometheus'
+    #prometheus.io/port: '8082' # Ensure this matches the targetPort below
   labels:
     app: todo-api
 spec:
   selector:
     app: todo-api
-  type: NodePort
+  type: NodePort # On EKS use LoadBalancer instead of NodePort
   ports:
     - name: http
       protocol: TCP
