@@ -6,18 +6,39 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     prometheus.io/path: '/actuator/prometheus'
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
     #prometheus.io/port: '8082' # Ensure this matches the targetPort below
   labels:
     app: todo-api
 spec:
   selector:
     app: todo-api
-  type: LoadBalancer # On EKS use LoadBalancer, For local testing use NodePort
+  type: NodePort # On EKS use LoadBalancer, For local testing use NodePort
   ports:
     - name: http
       protocol: TCP
       port: 8082         # ClusterIP port (internal)
       targetPort: 8082   # Container port
       nodePort: 30082    # Externally accessible on localhost:30082
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: todo
+  name: todo-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: todo-api-service
+              port:
+                number: 8082
