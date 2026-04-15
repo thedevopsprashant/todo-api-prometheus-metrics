@@ -12,7 +12,7 @@ metadata:
 spec:
   selector:
     app: todo-api
-  type: NodePort # On EKS use LoadBalancer instead of NodePort
+  type: LoadBalancer # On EKS use LoadBalancer, For local testing use NodePort
   ports:
     - name: http
       protocol: TCP
